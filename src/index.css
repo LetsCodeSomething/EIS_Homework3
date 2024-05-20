@@ -118,3 +118,15 @@ code {
 
   cursor: pointer;
 }
+
+/*Graph styles*/
+svg path, line {
+  fill: none;
+  stroke: black;
+  width: 1px;
+}
+
+svg text {
+  font: 8px Verdana;
+}
+ 
