@@ -16,6 +16,6 @@ root.render(
 
 root.render(<>
     <h3>Данные по продажам в Walmart</h3>
-    <Graph/>
+    <Graph dataset={dataset}/>
     <Table dataset={dataset} rowsPerPage="25" selectedPage="0"/>
 </>);
