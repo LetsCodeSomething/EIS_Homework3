@@ -99,7 +99,7 @@ export function Graph(props) {
         //Draw the data.
         if(graphType === GraphType.Dot) {
             const r = 4;
-            const offset = (minMaxIndex == 0)? -r / 2 : r / 2;
+            const offset = (minMaxIndex === 0)? -r / 2 : r / 2;
         
             svg.selectAll(".dot")
                 .data(graphData)
@@ -113,7 +113,7 @@ export function Graph(props) {
         }
         else if(graphType === GraphType.Histogram) {
             const barWidth = 5.0;
-            const offset = (minMaxIndex == 0) ? -barWidth / 2 : barWidth / 2;
+            const offset = (minMaxIndex === 0) ? -barWidth / 2 : barWidth / 2;
             svg.selectAll(".dot")
                 .data(graphData)
                 .enter()
