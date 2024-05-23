@@ -68,6 +68,7 @@ export function Graph(props) {
 
         let svg = d3.select(svgRef.current);
         svg.selectAll("*").remove();
+        svg.attr("height", height).attr("width", width);
 
         drawAxes(svg);
 
@@ -262,6 +263,7 @@ export function Graph(props) {
     const resetGraphButtonClicked = () => {
         let svg = d3.select(svgRef.current);
         svg.selectAll("*").remove();
+        svg.attr("height", 0).attr("width", 0);
     };
 
     return (
