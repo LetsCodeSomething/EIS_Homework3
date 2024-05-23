@@ -22,6 +22,8 @@ export function Graph(props) {
     const [animateFromIndex, setAnimateFromIndex] = React.useState(-1);
     const [animateToIndex,   setAnimateToIndex]   = React.useState(0);
 
+    const [trigger, setTrigger] = React.useState(true);
+
     const graphData = React.useMemo(() => {
         let groupObj = d3.group(props.dataset, d => d[oxAxisType]);
         let groupedData =[];
@@ -77,7 +79,7 @@ export function Graph(props) {
         {
             drawData(svg, 1, "red");
         }
-    }, [animateFromIndex, animateToIndex, graphType]);
+    }, [animateFromIndex, animateToIndex, trigger]);
     
     const drawAxes = (svg) => {
         let axisX = d3.axisBottom(scaleX);
@@ -226,6 +228,10 @@ export function Graph(props) {
 
     //--------------------------------------------
 
+    const drawGraphButtonClicked = () => {
+        setTrigger(!trigger);
+    };
+
     const makeStepOnGraphButtonClicked = () => {
         if(animateToIndex < graphData.length - 1) {
             setAnimateFromIndex(animateFromIndex + 1);
@@ -282,7 +288,7 @@ export function Graph(props) {
                 <label>Анимированные линии</label><br/>
             <p></p>
 
-            <input type="button" value="Построить" style={{marginRight: 10 + "px"}}/>
+            <input type="button" onClick={drawGraphButtonClicked} value="Построить" style={{marginRight: 10 + "px"}}/>
             <input type="button" onClick={makeStepOnGraphButtonClicked} value="Выполнить шаг" hidden={graphType !== GraphType.Animated} style={{marginRight: 10 + "px"}}/>
             <input type="button" onClick={animateGraphButtonClicked} value="Достроить до конца" hidden={graphType !== GraphType.Animated} style={{marginRight: 10 + "px"}}/>
             <input type="button" onClick={resetGraphButtonClicked} value="Стереть"/><br/>
