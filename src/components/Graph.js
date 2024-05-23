@@ -1,7 +1,4 @@
 import React from 'react';
-//import { useEffect, useMemo, useRef, useState } from "react";
-//import ReactDOM from 'react-dom/client';
-
 import * as d3 from "d3";
 
 export function Graph(props) {
@@ -18,10 +15,12 @@ export function Graph(props) {
     const height = 400;
     const width = 800; 
 
-    const [graphType, setGraphType] = React.useState(GraphType.Dot);
+    const [graphType,        setGraphType]        = React.useState(GraphType.Dot);
     const [displayMinValues, setDisplayMinValues] = React.useState(true);
     const [displayMaxValues, setDisplayMaxValues] = React.useState(false);
-    const [oxAxisType, setOxAxisType] = React.useState(OxAxisType.Store);
+    const [oxAxisType,       setOxAxisType]       = React.useState(OxAxisType.Store);
+    const [animateFromIndex, setAnimateFromIndex] = React.useState(-1);
+    const [animateToIndex,   setAnimateToIndex]   = React.useState(0);
 
     const graphData = React.useMemo(() => {
         let groupObj = d3.group(props.dataset, d => d[oxAxisType]);
@@ -68,21 +67,22 @@ export function Graph(props) {
         let svg = d3.select(svgRef.current);
         svg.selectAll("*").remove();
 
+        drawAxes(svg);
+
         if (displayMinValues) 
         {
-            drawGraph(svg, 0, "blue");
+            drawData(svg, 0, "blue");
         }
         if (displayMaxValues) 
         {
-            drawGraph(svg, 1, "red");
+            drawData(svg, 1, "red");
         }
-    }, [graphType]);
+    }, [animateFromIndex, animateToIndex, graphType]);
     
-    const drawGraph = (svg, minMaxIndex, color) => {
-        //Draw the axes.
+    const drawAxes = (svg) => {
         let axisX = d3.axisBottom(scaleX);
         let axisY = d3.axisLeft(scaleY);
-    
+
         svg.append("g")
             .attr("transform", `translate(${marginX}, ${height - marginY})`)
             .call(axisX)
@@ -91,12 +91,13 @@ export function Graph(props) {
             .attr("dx", "-.8em")
             .attr("dy", ".15em")
             .attr("transform", d => "rotate(-45)");
-   
+
         svg.append("g")
             .attr("transform", `translate(${marginX}, ${marginY})`)
-            .call(axisY);
+            .call(axisY);        
+    };
 
-        //Draw the data.
+    const drawData = (svg, minMaxIndex, color) => {
         if(graphType === GraphType.Dot) {
             const r = 4;
             const offset = (minMaxIndex === 0)? -r / 2 : r / 2;
@@ -124,6 +125,73 @@ export function Graph(props) {
                 .attr("transform", d => `translate(${marginX - barWidth / 2 + offset},${marginY + scaleY(d.values[minMaxIndex])})`)
                 .style("fill", color);
         }
+        else {
+            //Animated line graph.
+            let pathId = "path" + minMaxIndex;
+            let line = createPath(svg, color, pathId);
+
+            let reshapedData = [];
+            for(const item of graphData) {
+                reshapedData.push({x: item.labelX, y: item.values[minMaxIndex]});
+            }
+
+            let path = svg.select("#"+pathId).datum(reshapedData).attr("d", line);
+
+            //Compute the region of the graph that should be animated.
+            let duration;
+
+            let fromPathLength = 0;
+            let toPathLength = 0;
+
+            //Total length of all lines which the graph consists of.
+            const pathLength = path.node().getTotalLength();
+
+            if(animateFromIndex === -1) {
+                duration = 2000;    
+
+                fromPathLength = pathLength;
+                toPathLength = 0;
+            }
+            else {
+                //Scales return undefined, if the passed value is outside of their boundaries.
+                for(let i = reshapedData.length - 1; i > animateToIndex; i--) {
+                    toPathLength += Math.sqrt(Math.pow(scaleX(reshapedData[i].x) - scaleX(reshapedData[i - 1].x), 2) + 
+                                              Math.pow(scaleY(reshapedData[i].y) - scaleY(reshapedData[i - 1].y), 2));
+                }
+
+                fromPathLength = pathLength;
+                for(let i = 0; i < animateFromIndex; i++) {
+                    fromPathLength -= Math.sqrt(Math.pow(scaleX(reshapedData[i].x) - scaleX(reshapedData[i + 1].x), 2) +
+                                                Math.pow(scaleY(reshapedData[i].y) - scaleY(reshapedData[i + 1].y), 2));
+                }
+            
+                duration = (fromPathLength - toPathLength) / pathLength * 2000;
+            }
+
+            //To animate the graph, stroke-dashoffset should be interpolated.
+            //pathLength means that the graph should be fully hidden.
+            //0 means that the graph should be fully drawn.
+            path
+                .attr("stroke-dashoffset", fromPathLength)
+                .attr("stroke-dasharray", pathLength)
+                .transition()
+                .ease(d3.easeLinear)
+                .duration(duration)
+                .attr("stroke-dashoffset", toPathLength);
+        }
+    };
+
+    const createPath = (svg, color, id) => {
+        let line = d3.line()
+                     .x(d => scaleX(d.x) + scaleX.bandwidth() / 2)
+                     .y(d => scaleY(d.y));
+        svg.append("path")
+           .attr("id", id)  
+           .attr("transform", `translate(${marginX}, ${marginY})`)
+           .style("stroke-width", "2")
+           .style("stroke", color);
+       
+        return line;
     };
 
     //--------------------------------------------
@@ -156,6 +224,40 @@ export function Graph(props) {
         setGraphType(GraphType.Animated);
     };
 
+    //--------------------------------------------
+
+    const makeStepOnGraphButtonClicked = () => {
+        if(animateToIndex < graphData.length - 1) {
+            setAnimateFromIndex(animateFromIndex + 1);
+            setAnimateToIndex(animateToIndex + 1);
+        }
+        //The graph is fully drawn, restart.
+        else {
+            setAnimateFromIndex(0);
+            setAnimateToIndex(1);
+        }
+    };
+
+    const animateGraphButtonClicked = () => {
+        if(animateToIndex === graphData.length - 1) {
+            return;
+        }
+        
+        if(animateFromIndex === -1) {
+            setAnimateFromIndex(-1);
+            setAnimateToIndex(graphData.length - 1);
+        }
+        else {
+            setAnimateFromIndex(animateFromIndex + 1);
+            setAnimateToIndex(graphData.length - 1);
+        }
+    };
+
+    const resetGraphButtonClicked = () => {
+        let svg = d3.select(svgRef.current);
+        svg.selectAll("*").remove();
+    };
+
     return (
         <>
             <b>График</b>
@@ -180,10 +282,10 @@ export function Graph(props) {
                 <label>Анимированные линии</label><br/>
             <p></p>
 
-            <input type="button" value="Построить"/>
-            <input type="button" value="Выполнить шаг"/>
-            <input type="button" value="Проиграть анимацию"/>
-            <input type="button" value="Стереть"/><br/>
+            <input type="button" value="Построить" style={{marginRight: 10 + "px"}}/>
+            <input type="button" onClick={makeStepOnGraphButtonClicked} value="Выполнить шаг" hidden={graphType !== GraphType.Animated} style={{marginRight: 10 + "px"}}/>
+            <input type="button" onClick={animateGraphButtonClicked} value="Достроить до конца" hidden={graphType !== GraphType.Animated} style={{marginRight: 10 + "px"}}/>
+            <input type="button" onClick={resetGraphButtonClicked} value="Стереть"/><br/>
             
             <svg ref={svgRef} width={width} height={height}></svg>
         </>
